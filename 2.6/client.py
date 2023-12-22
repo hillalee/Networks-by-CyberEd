@@ -2,8 +2,11 @@ import socket
 import datetime
 import random
 
+#SERVER_PORT = 8850
+#SERVER_IP = "54.71.128.194"
 SERVER_PORT = 5678
 SERVER_IP = "127.0.0.1"
+
 
 def setup_socket():
 	"""
@@ -26,8 +29,10 @@ def recv_msg(conn):
 
 
 def send_msg(conn, msg):
-	encodedMsg = msg.encode()
-	print("\nSent message")
+	length = str(len(msg))
+	zeroFilled = length.zfill(2)
+	encodedMsg = (zeroFilled+msg).encode()
+	print("\nSent message {}".format(zeroFilled+msg))
 	conn.send(encodedMsg)
 
 
