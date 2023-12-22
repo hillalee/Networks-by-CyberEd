@@ -1,12 +1,11 @@
-
-
 import socket
 import datetime
 import random
 
+
+SERVER_NAME = "SuperAwesomeServer"
 SERVER_PORT = 5678
 SERVER_IP = "127.0.0.1"
-SERVER_NAME = "SuperAwesomeServer"
 
 MAX_RAND = 10
 MIN_RAND = 1
@@ -27,8 +26,9 @@ def setup_socket():
 	return conn
 
 def parse_recv_msg(conn):
-	decodedMsg = conn.recv(1024).decode()
-	length, msg = decodedMsg.split("|")
+	decodedMsg = conn.recv(2).decode()
+	length = int(decodedMsg[:2])
+	msg = conn.recv(length).decode()
 	return length, msg
 
 def send_time(conn):
