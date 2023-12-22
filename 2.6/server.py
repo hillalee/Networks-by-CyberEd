@@ -1,3 +1,4 @@
+#ex. 2.7, page 49 in Networking book - Gvahim
 import socket
 import datetime
 import random
