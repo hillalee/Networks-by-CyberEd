@@ -30,7 +30,8 @@ STATUS = {
     "500": "Internal Server Error"
 }
 FORBIDDEN = [r"{}\forbidden.txt".format(WEBROOT)]
-CALCULATE = f"{WEBROOT}/calculate-next"
+CALCULATE = f"{WEBROOT}\\calculate-next"
+TRIANGLE = f"{WEBROOT}\\calculate-area"
 
 
 def get_file_data(filename):
@@ -53,6 +54,37 @@ def handle_client_request(resource, client_socket):
 		statusKey = "302"
 		errorMsg = f"HTTP/1.1 {statusKey} {url} Moved Temporarily to {REDIRECTION_DICTIONARY[url]} \r\n"
 		client_socket.send(errorMsg.encode())
+		return
+
+	# 4.6 -  fix calculate next func
+	if url.startswith(CALCULATE):
+		status = "200"
+		filetype = "txt"
+		question = url.split("=")[-1]
+		data = str(int(question) + 1)
+
+		http_header = f"HTTP/1.1 {status} {STATUS[status]}\r\n"
+		http_header += f'Content-Type: {TYPES[filetype]}\r\n'
+
+		http_header += f'Content-Length: {len(data)}\r\n\r\n'
+		http_response = http_header + data
+		client_socket.send(http_response.encode())
+		return
+
+	# 4.9 - calculate triangle area
+	if url.startswith(TRIANGLE):
+		status = "200"
+		filetype = "txt"
+		question = url.split("?")[-1].split("&")
+		width, height = question[0][-1], question[-1][-1]
+		data = str((float(width) * float(height)) / 2)
+
+		http_header = f"HTTP/1.1 {status} {STATUS[status]}\r\n"
+		http_header += f'Content-Type: {TYPES[filetype]}\r\n'
+
+		http_header += f'Content-Length: {len(data)}\r\n\r\n'
+		http_response = http_header + data
+		client_socket.send(http_response.encode())
 		return
 
 	# extract requested file type from URL (html, jpg etc)
