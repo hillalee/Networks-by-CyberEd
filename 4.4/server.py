@@ -1,110 +1,141 @@
-# page 99
 import socket
 import validators
 import os
+import re
 
+IP = '0.0.0.0'
+PORT = 80
+SOCKET_TIMEOUT = 1
 WEBSITE = "http://127.0.0.1:80"
-SERVER_IP = "127.0.0.1"
-SERVER_PORT = 80
 WEBROOT = r"C:\Networks\NetworksBook\ex44\webroot\webroot"
-INDEX = "index.html"
+INDEX = "\index.html"
 
 TYPES = {
-	"html": "text/html; charset=utf-8",
-	"txt": "text/html; charset=utf-8",
-	"jpg": "image/jpeg",
-	"js": "text/javascript; charset=UTF-8",
-	"css": "text/css"
+    "html": "text/html; charset=utf-8",
+    "txt": "text/html; charset=utf-8",
+    "jpg": "image/jpeg",
+    "js": "text/javascript; charset=UTF-8",
+    "css": "text/css"
 }
-MOVED = {
-	r"{}\file1.txt".format(WEBROOT) : r"{}\file2.txt".format(WEBROOT)
+
+REDIRECTION_DICTIONARY = {
+    r"{}\file1.txt".format(WEBROOT): r"{}\file2.txt".format(WEBROOT)
+}
+
+STATUS = {
+    "200": "OK",
+    "404": "File Not Found",
+    "403": "Forbidden",
+    "302": "Moved Temporarily",
+    "500": "Internal Server Error"
 }
 FORBIDDEN = [r"{}\forbidden.txt".format(WEBROOT)]
+CALCULATE = f"{WEBROOT}/calculate-next"
 
 
+def get_file_data(filename):
+    with open(filename, "r") as file:
+        fileData = file.read()
+        return fileData
 
-def handle_client_message(conn: socket):
-	msg = conn.recv(1024).decode()
-	parsed = msg.split(r"\r\n")
+
+def handle_client_request(resource, client_socket):
+	""" Check the required resource, generate proper HTTP response and send to client"""
+
+	if resource == os.path.sep or resource == "/":
+		url = f"{WEBROOT}{INDEX}"
+	else:
+		resource = re.sub(r'\/+', r'\\', resource)
+		url = f"{WEBROOT}{resource}"
+
+	# check if URL had been redirected, not available or other error code.:
+	if url in REDIRECTION_DICTIONARY:
+		statusKey = "302"
+		errorMsg = f"HTTP/1.1 {statusKey} {url} Moved Temporarily to {REDIRECTION_DICTIONARY[url]} \r\n"
+		client_socket.send(errorMsg.encode())
+		return
+
+	# extract requested file type from URL (html, jpg etc)
+	filetype = url.split(os.path.sep)[-1].split(".")[-1]
+
+	if filetype in TYPES:
+		status = "200"
+		http_header = f"HTTP/1.1 {status} {STATUS[status]}\r\n"
+		http_header += f'Content-Type: {TYPES[filetype]}\r\n'
+	else:
+		# file not supported
+		status = "403"
+		errorMsg = f"HTTP/1.1 {status} {STATUS[status]}\r\n"
+		client_socket.send(errorMsg.encode())
+		return
+
+	# read the data from the file
+	data = get_file_data(url)
+	http_header += f'Content-Length: {len(data)}\r\n\r\n'
+	http_response = http_header + data
+	client_socket.send(http_response.encode())
+
+
+def validate_http_request(request):
+	"""
+	Check if request is a valid HTTP request and returns TRUE / FALSE and the requested URL
+	"""
+	valid = True
+	parsed = request.split(r"\r\n")
+
 	# check if msg is in correct form
-	if not (parsed[0].startswith("GET") and parsed[0].endswith("HTTP/1.1")):
+	if not parsed[0].startswith('GET'):
 		status = 500
-		errorMsg= r"HTTP/1.1 500 Internal Server Error\r\n"
+		errorMsg = r"HTTP/1.1 500 Internal Server Error\r\n"
 		print(errorMsg)
-		conn.send(errorMsg.encode())
-		return
-
-	#extract url, check if it exists
+		valid = False
+		return valid, errorMsg
 	url = parsed[0].split(" ")[1]
-	if url == "/" or "\\":
-		url += INDEX
-	file = f"{WEBROOT}{url}"
-	valid = os.path.isfile(file)
+	urlPath = url.replace(os.path.sep, '/')
 
-	#invalid file
-	if not valid:
-		status = 404
-		errorMsg = r"HTTP/1.1 404 File Not Found\r\n"
-		conn.send(errorMsg.encode())
-		return
+	return valid, url
 
-	#forbidden file
-	if file in FORBIDDEN:
-		status = 403
-		errorMsg = r"HTTP/1.1 403 Forbidden \r\n"
-		conn.send(errorMsg.encode())
-		return
 
-	#file moved temporarily
-	if file in MOVED.keys():
-		status = 302
-		errorMsg = r"HTTP/1.1 302 Moved Temporarily to {} \r\n".format(MOVED[file])
-		conn.send(errorMsg.encode())
-		return
+def handle_client(client_socket):
+    """ Handles client requests: verifies client's requests are legal HTTP, calls function to handle the requests """
+    print('Client connected')
 
-	#open file
-	with open(file, "r") as f:
-		fileData = f.read()
-		packet = r'HTTP/1.1 200 OK\r\n'
-		fileType = file.split(os.path.sep)[-1].split('.')[-1]
-
-		# check if file type is supported
-		if fileType not in TYPES.keys():
-			status = 500
-			errorMsg = r"HTTP/1.1 500 Internal Server Error\r\n"
-			print(errorMsg)
-			conn.send(errorMsg.encode())
-			return
-
-		#build msg according to HTTP protocol
-		fileKey = TYPES[fileType]
-		print("file type = {}".format(fileType))
-		packet += 'Content-Type: {}\r\n'.format(fileKey)
-		packet += 'Content-Length: {}\r\n'.format(len(fileContent))
-		packet = bytes_packet.encode()
-		packet += fileData
-
-		return packet
-
+    # default msg
+    #DEFAULT_FILE = get_file_data(f"{WEBROOT}{INDEX}")
+    #FIXED_RESPONSE = (f"HTTP/1.1 200 OK \r\n"
+                      #f'Content-Type: {TYPES["html"]}\r\n'
+                      #f'Content-Length: {len(DEFAULT_FILE)}\r\n'
+                      #f'{DEFAULT_FILE}\r\n')
+    #client_socket.send(FIXED_RESPONSE.encode())
+    while True:
+        client_request = client_socket.recv(1024).decode()
+        valid_http, resource = validate_http_request(client_request)
+        if valid_http or resource == "":
+            print('Got a valid HTTP request')
+            handle_client_request(resource, client_socket)
+            break
+        else:
+            print('Error: Not a valid HTTP request')
+            break
+    print('Closing connection')
+    client_socket.close()
 
 
 def main():
-	conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	try:
-		conn.bind((SERVER_IP, SERVER_PORT))
-	except OSError:
-		print("Try again later")
-		exit()
+    # Open a socket and loop forever while waiting for clients
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((IP, PORT))
+    print("Server is running\n")
+    server_socket.listen()
+    print("Listening for connections on port {}".format(PORT))
 
-	print("Server is running")
-	conn.listen()
-
-	while True:
-		(client_socket, client_address) = conn.accept()
-		while True:
-			handle_client_msg(client_socket)
+    while True:
+        client_socket, client_address = server_socket.accept()
+        print('New connection received')
+        # client_socket.settimeout(SOCKET_TIMEOUT)
+        handle_client(client_socket)
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
+    # Call the main handler function
     main()
