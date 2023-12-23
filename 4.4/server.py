@@ -48,7 +48,7 @@ def handle_client_request(resource, client_socket):
 		resource = re.sub(r'\/+', r'\\', resource)
 		url = f"{WEBROOT}{resource}"
 
-	# check if URL had been redirected, not available or other error code.:
+	#check if URL had been redirected, not available or other error code. For example:
 	if url in REDIRECTION_DICTIONARY:
 		statusKey = "302"
 		errorMsg = f"HTTP/1.1 {statusKey} {url} Moved Temporarily to {REDIRECTION_DICTIONARY[url]} \r\n"
@@ -70,10 +70,17 @@ def handle_client_request(resource, client_socket):
 		return
 
 	# read the data from the file
-	data = get_file_data(url)
-	http_header += f'Content-Length: {len(data)}\r\n\r\n'
-	http_response = http_header + data
-	client_socket.send(http_response.encode())
+	if filetype == "jpg":
+		with open(url, "rb") as file:
+			fileData = file.read()
+			http_header += f'Content-Length: {len(fileData)}\r\n\r\n'
+			http_response = http_header.encode() + fileData
+			client_socket.send(http_response)
+	else:
+		data = get_file_data(url)
+		http_header += f'Content-Length: {len(data)}\r\n\r\n'
+		http_response = http_header + data
+		client_socket.send(http_response.encode())
 
 
 def validate_http_request(request):
@@ -99,14 +106,6 @@ def validate_http_request(request):
 def handle_client(client_socket):
     """ Handles client requests: verifies client's requests are legal HTTP, calls function to handle the requests """
     print('Client connected')
-
-    # default msg
-    #DEFAULT_FILE = get_file_data(f"{WEBROOT}{INDEX}")
-    #FIXED_RESPONSE = (f"HTTP/1.1 200 OK \r\n"
-                      #f'Content-Type: {TYPES["html"]}\r\n'
-                      #f'Content-Length: {len(DEFAULT_FILE)}\r\n'
-                      #f'{DEFAULT_FILE}\r\n')
-    #client_socket.send(FIXED_RESPONSE.encode())
     while True:
         client_request = client_socket.recv(1024).decode()
         valid_http, resource = validate_http_request(client_request)
@@ -132,7 +131,6 @@ def main():
     while True:
         client_socket, client_address = server_socket.accept()
         print('New connection received')
-        # client_socket.settimeout(SOCKET_TIMEOUT)
         handle_client(client_socket)
 
 
