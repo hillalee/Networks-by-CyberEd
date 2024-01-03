@@ -1,3 +1,5 @@
+#ex 8.6, page 289
+
 from scapy.all import *
 VALID_LEN = 17
 
