@@ -20,7 +20,8 @@ while True:
 	if user_MAC == "exit":
 		break
 	if valid_MAC(user_MAC):
-		print(f"""MAC Address: '{user_MAC}' is valid \n""")
+		print(f"""MAC Address: '{user_MAC}' is valid \n"""
+		      Vendor ID: {user_MAC[:8]}""")
 	else:
 		print(f"""MAC Address: '{user_MAC}' is invalid \n""")
 
