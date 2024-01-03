@@ -1,6 +1,16 @@
 from scapy.all import *
 VALID_LEN = 17
 
+mac_addresses = [
+    "11:22:33:44:55:66",   # Valid address
+    "FF:FF:FF:FF:FF:FF",   # Valid address
+    "34:31:21cd:12:AB",    # Valid address
+    "11:22:33:44:55:66:77", # Invalid address
+    "11-22-33-44-55-66",   # Invalid address for this script
+    "11:22:33:44:55",      # Invalid address
+    "22:33:44:55:661H"     # Invalid address
+]  
+
 
 def valid_MAC(address):
 	rc = True
